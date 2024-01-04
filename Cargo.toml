@@ -9,3 +9,10 @@ edition = "2021"
 naga_oil = "0.11.0"
 naga = "0.14.2"
 wgpu = { version = "0.18.0", features = ["naga"] }
+pollster = "0.3.0"
+bytemuck = { version = "1.4", features = ["derive"] }
+image = { version = "0.24", default-features = false, features = [
+    "jpeg",
+    "png",
+] }
+futures-intrusive = "0.5.0"
