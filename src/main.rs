@@ -3,7 +3,6 @@ use naga_oil::compose::{
 };
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::num::NonZeroU32;
 use wgpu;
 use wgpu::util::DeviceExt;
 use wgpu::{BufferAddress, Extent3d, ImageCopyTexture, StoreOp};
@@ -19,25 +18,26 @@ impl ShaderMaker {
         Self { composer }
     }
 
-    pub fn load(
+    /// Add a shader as a composable module so that it can be imported by other shaders.
+    pub fn add_composable(
         &mut self,
         source: &str,
         module_name: &str,
-        all_shader_defs: &[&str],
-        defined_shader_defs: &[&str],
-    ) -> Option<wgpu::ShaderSource> {
+        shader_defs: &[&str],
+    ) {
         let module_exists = self.composer.contains_module(module_name);
+
         if !module_exists {
-            let mut all_shader_defs_map: HashMap<String, ShaderDefValue> = HashMap::new();
-            for def in all_shader_defs.iter() {
-                all_shader_defs_map.insert((*def).into(), Default::default());
+            let mut shader_defs_map: HashMap<String, ShaderDefValue> = HashMap::new();
+            for def in shader_defs.iter() {
+                shader_defs_map.insert((*def).into(), Default::default());
             }
 
             match self
                 .composer
                 .add_composable_module(ComposableModuleDescriptor {
                     source,
-                    shader_defs: all_shader_defs_map,
+                    shader_defs: shader_defs_map,
                     as_name: Some(module_name.into()),
                     ..Default::default()
                 }) {
@@ -51,16 +51,23 @@ impl ShaderMaker {
                     println!("? -> {e:#?}")
                 }
             }
-        }
+        };
+    }
 
-        let mut defined_shader_defs_map: HashMap<String, ShaderDefValue> = HashMap::new();
-        for def in defined_shader_defs.iter() {
-            defined_shader_defs_map.insert((*def).into(), Default::default());
+    /// Make a naga module using the shader.
+    pub fn make_shader(
+        &mut self,
+        source: &str,
+        shader_defs: &[&str],
+    ) -> Option<wgpu::ShaderSource> {
+        let mut shader_defs_map: HashMap<String, ShaderDefValue> = HashMap::new();
+        for def in shader_defs.iter() {
+            shader_defs_map.insert((*def).into(), Default::default());
         }
 
         match self.composer.make_naga_module(NagaModuleDescriptor {
             source,
-            shader_defs: defined_shader_defs_map.into(),
+            shader_defs: shader_defs_map.into(),
             ..Default::default()
         }) {
             Ok(module) => Some(wgpu::ShaderSource::Naga(Cow::Owned(module))),
@@ -108,7 +115,7 @@ fn main() {
         compatible_surface: None,
         force_fallback_adapter: false,
     }))
-    .unwrap();
+        .unwrap();
 
     // Use the adapter to create a device and a queue.
     let (device, queue) = pollster::block_on(adapter.request_device(
@@ -119,11 +126,11 @@ fn main() {
         },
         None,
     ))
-    .unwrap();
+        .unwrap();
 
     let mut shader_maker = ShaderMaker::new();
 
-    let shader_source = shader_maker.load(include_str!("test.wgsl"), "model", &[], &["BLUE"]);
+    let shader_source = shader_maker.make_shader(include_str!("test.wgsl"), &["BLUE"]);
 
     let shader_desc = wgpu::ShaderModuleDescriptor {
         label: None,
@@ -184,16 +191,16 @@ fn main() {
 
     let vertices = [
         Vertex2d {
-            position: [0.0, 0.0],
+            position: [-1.0, 1.0],
         },
         Vertex2d {
-            position: [0.0, -1.0],
+            position: [-1.0, -1.0],
         },
         Vertex2d {
             position: [1.0, -1.0],
         },
         Vertex2d {
-            position: [1.0, 0.0],
+            position: [1.0, 1.0],
         },
     ];
 
